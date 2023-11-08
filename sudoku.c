@@ -17,6 +17,62 @@ void initZero(int (*arr)[], int dim)
     }
 }
 
+int isSolved(int sudoku[DIM][DIM])
+{
+    for (int i = 0; i < DIM; i++)
+        for (int j = 0; j < DIM; j++)
+            if (sudoku[i][j] == 0)
+                return 0;
+
+    return 1;
+}
+
+int isPossible(int sudoku[DIM][DIM])
+{
+
+    for (int i = 0; i < DIM; i++)
+    {
+        for (int j = 0; j < DIM; j++)
+        {
+            if (sudoku[i][j] == 0)
+                continue;
+
+            // los numeros de esa columna
+            for (int x = 0; x < DIM; x++)
+            {
+                if (sudoku[x][j] == sudoku[i][j] && x != i)
+                    return 0;
+            }
+
+            // los numeros de esa fila
+            for (int x = 0; x < DIM; x++)
+            {
+                if (sudoku[i][x] == sudoku[i][j] && x != j)
+                    return 0;
+            }
+
+            // numeros conocidos de ese cuadrado
+            for (int x = 0; x < (int)sqrt(DIM); x++)
+            {
+                for (int xx = 0; xx < (int)sqrt(DIM); xx++)
+                {
+                    // que putisima barbaridad
+                    if (sudoku[(int)sqrt(DIM) * (i / (int)sqrt(DIM)) + x][(int)sqrt(DIM) * (j / (int)sqrt(DIM)) + xx] == sudoku[i][j] && (int)sqrt(DIM) * (i / (int)sqrt(DIM)) + x != i && (int)sqrt(DIM) * (j / (int)sqrt(DIM)) + xx != j)
+                        return 0;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+void copyOptions(Options (*o1)[DIM][DIM], Options o2[DIM][DIM])
+{
+    for (int I = 0; I < DIM; I++)
+        for (int J = 0; J < DIM; J++)
+            (*o1)[I][J] = o2[I][J];
+}
+
 void printSudoku(int sudoku[DIM][DIM])
 {
     for (int i = 0; i < DIM; i++)
@@ -115,7 +171,7 @@ int compareStates(int actual[DIM][DIM], int previous[DIM][DIM])
     return 1; // son iguales
 }
 
-int simplfySudoku(Options (*optionSudoku)[DIM][DIM])
+int simplifySudoku(Options (*optionSudoku)[DIM][DIM])
 {
     int resuelto = 1;
 
@@ -320,6 +376,56 @@ int simplfySudoku(Options (*optionSudoku)[DIM][DIM])
     return resuelto;
 }
 
+int solveSudoku(Options (*optionSudoku)[DIM][DIM], int i, int j)
+{
+
+    if (i == 8 && j == 9)
+    {
+        int sudoku[DIM][DIM];
+        optionsToArray((*optionSudoku), &sudoku);
+
+        printf("\n");
+        printSudoku(sudoku);
+
+        return 1;
+    }
+    else if (j == 9)
+    {
+        j = 0;
+        i++;
+    }
+
+    Options opt[DIM][DIM];
+    copyOptions(&opt, (*optionSudoku));
+
+    if (opt[i][j].options == 1)
+        solveSudoku(&opt, i, j + 1);
+    else
+        for (int o = 0; o < opt[i][j].options; o++)
+        {
+            Options optCopy[DIM][DIM];
+            copyOptions(&optCopy, opt);
+
+            initZero(&optCopy[i][j].optionArray, DIM);
+            optCopy[i][j].options = 1;
+
+            optCopy[i][j].optionArray[0] = opt[i][j].optionArray[o];
+
+            int sudoku[DIM][DIM];
+            optionsToArray(optCopy, &sudoku);
+
+            if (isPossible(sudoku))
+            {
+                // printf("\n");
+                // printSudoku(sudoku);
+                if (solveSudoku(&optCopy, i, j + 1))
+                    return 1;
+            }
+        }
+
+    return 0;
+}
+
 int main()
 {
     int sudoku[DIM][DIM] = {
@@ -335,7 +441,7 @@ int main()
 
     // int sudoku[DIM][DIM] = {
     //     {0, 4, 1, 0, 0, 7, 0, 5, 0},
-    //     {0, 8, 7, 5, 0, 0, 6, 0, 0},
+    //     {0, 8, 7, 5, 0, 2, 6, 0, 0},
     //     {0, 0, 2, 0, 0, 1, 0, 0, 0},
     //     {0, 9, 3, 0, 0, 0, 2, 1, 4},
     //     {0, 0, 5, 2, 0, 0, 3, 9, 8},
@@ -354,7 +460,7 @@ int main()
     // bastante feo
     while (1)
     {
-        int i = simplfySudoku(&optionSudoku);
+        int i = simplifySudoku(&optionSudoku);
 
         printf("\n");
         optionsToArray(optionSudoku, &sudoku);
@@ -362,11 +468,15 @@ int main()
 
         if (i == 1)
         {
+            printf("sudoku resuelto !!");
             return 0;
         }
         else if (i == -1)
         {
-            printf("\n\nno se que hacer mas!");
+            printf("\n\nfuerza bruta:\n");
+
+            solveSudoku(&optionSudoku, 0, 0);
+
             return 0;
         }
     }
