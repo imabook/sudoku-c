@@ -105,14 +105,30 @@ void optionsToArray(Options optionSudoku[DIM][DIM], int (*sudoku)[DIM][DIM])
     }
 }
 
-int solveSudoku(Options (*optionSudoku)[DIM][DIM])
+int compareStates(int actual[DIM][DIM], int previous[DIM][DIM])
+{
+    for (int i = 0; i < DIM; i++)
+        for (int j = 0; j < DIM; j++)
+            if (actual[i][j] != previous[i][j])
+                return 0; // no son iguales
+
+    return 1; // son iguales
+}
+
+int simplfySudoku(Options (*optionSudoku)[DIM][DIM])
 {
     int resuelto = 1;
+
+    int prevState[DIM][DIM];
+    optionsToArray(*optionSudoku, &prevState);
 
     for (int i = 0; i < DIM; i++)
     {
         for (int j = 0; j < DIM; j++)
         {
+
+            // TODA LA PUTISIMA LOGICA:
+
             // significa que no esta resuelto ese cuadrado
             if ((*optionSudoku)[i][j].options != 1)
             {
@@ -123,6 +139,14 @@ int solveSudoku(Options (*optionSudoku)[DIM][DIM])
 
                 int sudoku[DIM][DIM];
                 optionsToArray(*optionSudoku, &sudoku);
+
+                // estos estan pa calcular los huecos restantes en una fila/columna/cuadrado
+                int optionsColumna[DIM];
+                initZero(&optionsColumna, DIM);
+                int optionsFila[DIM];
+                initZero(&optionsFila, DIM);
+                int optionsCuadrado[DIM];
+                initZero(&optionsCuadrado, DIM);
 
                 // los numeros de esa columna
                 for (int x = 0; x < DIM; x++)
@@ -144,6 +168,18 @@ int solveSudoku(Options (*optionSudoku)[DIM][DIM])
                             indice++;
                         }
                     }
+                    else
+                    {
+                        // por cada opcion de esta casilla chequear opciones de la fila
+                        for (int option = 0; option < (*optionSudoku)[i][j].options; option++)
+                        {
+                            for (int k = 0; k < (*optionSudoku)[x][j].options; k++)
+                            {
+                                if ((*optionSudoku)[i][j].optionArray[option] == (*optionSudoku)[x][j].optionArray[k])
+                                    optionsColumna[option]++;
+                            }
+                        }
+                    }
                 }
                 // numeros conocidos de esa fila
                 for (int x = 0; x < DIM; x++)
@@ -163,6 +199,18 @@ int solveSudoku(Options (*optionSudoku)[DIM][DIM])
                         {
                             known[indice] = sudoku[i][x];
                             indice++;
+                        }
+                    }
+                    else
+                    {
+                        // por cada opcion de esta casilla chequear opciones de la fila
+                        for (int option = 0; option < (*optionSudoku)[i][j].options; option++)
+                        {
+                            for (int k = 0; k < (*optionSudoku)[i][x].options; k++)
+                            {
+                                if ((*optionSudoku)[i][j].optionArray[option] == (*optionSudoku)[i][x].optionArray[k])
+                                    optionsFila[option]++;
+                            }
                         }
                     }
                 }
@@ -189,12 +237,84 @@ int solveSudoku(Options (*optionSudoku)[DIM][DIM])
                                 indice++;
                             }
                         }
+                        else
+                        {
+                            // por cada opcion de esta casilla chequear opciones de la fila
+                            for (int option = 0; option < (*optionSudoku)[i][j].options; option++)
+                            {
+                                for (int k = 0; k < (*optionSudoku)[(int)sqrt(DIM) * (i / (int)sqrt(DIM)) + x][(int)sqrt(DIM) * (j / (int)sqrt(DIM)) + xx].options; k++)
+                                {
+                                    if ((*optionSudoku)[i][j].optionArray[option] == (*optionSudoku)[(int)sqrt(DIM) * (i / (int)sqrt(DIM)) + x][(int)sqrt(DIM) * (j / (int)sqrt(DIM)) + xx].optionArray[k])
+                                        optionsCuadrado[option]++;
+                                }
+                            }
+                        }
                     }
                 }
+                Options finalOptions = getOptions(known);
 
-                (*optionSudoku)[i][j] = getOptions(known);
+                // podria hacerlo una sola vez con un forloop de 3 PERO NO ME SALE DE LA POLLA
+                if (finalOptions.options != 1)
+                {
+                    Options tempOptions;
+                    tempOptions.options = 9;
+
+                    // chequeo de columna
+                    for (int o = 0; o < DIM; o++)
+                    {
+                        if (optionsColumna[o] == 1)
+                        {
+                            tempOptions.options = 1;
+                            initZero(&tempOptions.optionArray, DIM);
+                            tempOptions.optionArray[0] = (*optionSudoku)[i][j].optionArray[o];
+                        }
+                    }
+
+                    // chequeo de fila
+                    for (int o = 0; o < DIM; o++)
+                    {
+                        if (optionsFila[o] == 1)
+                        {
+                            tempOptions.options = 1;
+                            initZero(&tempOptions.optionArray, DIM);
+                            tempOptions.optionArray[0] = (*optionSudoku)[i][j].optionArray[o];
+                        }
+                    }
+
+                    // chequeo de cuadrao
+                    for (int o = 0; o < DIM; o++)
+                    {
+                        if (optionsCuadrado[o] == 1)
+                        {
+                            tempOptions.options = 1;
+                            initZero(&tempOptions.optionArray, DIM);
+                            tempOptions.optionArray[0] = (*optionSudoku)[i][j].optionArray[o];
+                        }
+                    }
+
+                    if (tempOptions.options == 1)
+                    {
+                        for (int numero = 0; numero < finalOptions.options; numero++)
+                        {
+                            if (finalOptions.optionArray[numero] == tempOptions.optionArray[0])
+                            {
+                                // significa que el numero si es valido para ser elegido
+                                finalOptions = tempOptions;
+                            }
+                        }
+                    }
+                }
+                (*optionSudoku)[i][j] = finalOptions;
             }
         }
+    }
+
+    int actualState[DIM][DIM];
+    optionsToArray(*optionSudoku, &actualState);
+
+    if (compareStates(actualState, prevState))
+    {
+        return -1;
     }
 
     return resuelto;
@@ -234,14 +354,19 @@ int main()
     // bastante feo
     while (1)
     {
-        int i = solveSudoku(&optionSudoku);
+        int i = simplfySudoku(&optionSudoku);
 
         printf("\n");
         optionsToArray(optionSudoku, &sudoku);
         printSudoku(sudoku);
 
-        if (i)
+        if (i == 1)
         {
+            return 0;
+        }
+        else if (i == -1)
+        {
+            printf("\n\nno se que hacer mas!");
             return 0;
         }
     }
